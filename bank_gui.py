@@ -1,164 +1,187 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
-from typing import Callable, Optional, List
-
-from holder import Holder
-from account import Account
+import tkinter
+from tkinter import messagebox
+from bank import Bank
+from database import Database
 from exceptions import BankError
-
-class BankApp(tk.Tk):
-    def __init__(self, database=None, bank=None):
+class BankApp(tkinter.Tk):
+    def __init__(self, database, bank):
         super().__init__()
+        self.title("Banco")
+        self.configure(padx=10, pady=10)
 
         self.database = database
         self.bank = bank
-        self.holders: List = []
-
-        self.title("Bank Application")
-        self.geometry("800x600")
+        self.holders = []   
 
         self.build_holders_panel()
         self.build_accounts_panel()
 
+        self.lbl_status = tkinter.Label(self, text="Pronto.")
+        self.lbl_status.grid(row=1, column=0, columnspan=2, sticky="we", pady=(10, 0))
 
-    def build_holders_panel(self) -> None:
-        self.holders_frame = ttk.LabelFrame(self, text="Titulares")
-        self.holders_frame.pack(side = "left", fill="both", expand="True", padx=10, pady=10)
+        self.refresh_holders()
 
-        ttk.Label(self.holders_frame,text="Pesquisar:").pack(anchor="w",padx=10, pady=(10,2))
+    def build_holders_panel(self):
+        frame = tkinter.Frame(self)
+        frame.grid(row=0, column=0, sticky="n", padx=(0, 20))
 
-        self.search_entry = ttk.Entry(self.holders_frame)
-        self.search_entry.pack(fill="x",padx=10)
-        self.search_entry.bind("<KeyRelease>",lambda event: self.search_changed())
-        self.holders_list = tk.Listbox(self.holders_frame)
-        self.holders_list.pack(fill="both",expand=True,padx=10,pady=10)
-        self.holders_list.bind("<<ListboxSelect>>", lambda event: self.refresh_accounts())
-        ttk.Label(self.holders_frame, text="Nome:").pack(anchor="w", padx=10)
-        self.name_entry = ttk.Entry(self.holders_frame)
-        self.name_entry.pack(fill="x", padx=10, pady=(0,5))
-        ttk.Label(self.holders_frame, text="CPF:").pack(anchor="w", padx=10)
-        self.cpf_entry = ttk.Entry(self.holders_frame)
-        self.cpf_entry.pack(fill="x", padx=10, pady=(0,5))
-        ttk.Button(self.holders_frame,text="Cadastrar titular",command=self.create_holder).pack(padx=10,pady=10)
+        self.lbl_titulo_titulares = tkinter.Label(frame, text="TITULARES")
+        self.lbl_titulo_titulares.grid(row=0, column=0, pady=(0, 10))
 
+        self.lbl_busca = tkinter.Label(frame, text="Buscar:")
+        self.txt_busca = tkinter.Entry(frame, width=30)
+        self.lbl_busca.grid(row=1, column=0, sticky="w")
+        self.txt_busca.grid(row=2, column=0, sticky="w", pady=(0, 10))
+        self.txt_busca.bind("<KeyRelease>", self.search_changed)
 
-    def build_accounts_panel(self) -> None:
-        self.accounts_frame = ttk.LabelFrame(self, text='Contas')
-        self.accounts_frame.pack(side="right", fill="both", expand=True, padx=10, pady=10)
-        ttk.Label(self.accounts_frame, text="Contas do titular selecionado:").pack(anchor="w", padx=10, pady=(10,5))
-        self.accounts_list = tk.Listbox(self.accounts_frame)
-        self.accounts_list.pack(fill="both",expand=True,padx=10,pady=10)
-        ttk.Button(self.accounts_frame, text="Nova conta", command=self.create_account).pack(padx=10, pady=5)
-        ttk.Button(self.accounts_frame, text="Excluir conta", command=self.delete_account).pack(padx=10, pady=5)
-        ttk.Label(self.accounts_frame,text="Valor").pack(anchor="w", padx=10, pady=(10,2))
+        self.lst_titulares = tkinter.Listbox(frame, width=40, height=10, exportselection=False)
+        self.lst_titulares.grid(row=3, column=0)
+        self.lst_titulares.bind("<<ListboxSelect>>", self.refresh_accounts)
 
-        self.amount_entry = ttk.Entry(self.accounts_frame)
-        self.amount_entry.pack(fill="x", padx=10)
+        self.lbl_nome = tkinter.Label(frame, text="Nome:")
+        self.txt_nome = tkinter.Entry(frame, width=30)
+        self.lbl_cpf = tkinter.Label(frame, text="CPF:")
+        self.txt_cpf = tkinter.Entry(frame, width=30)
+        self.btn_cadastrar = tkinter.Button(frame, text="Cadastrar titular", width=20)
 
-        ttk.Button(self.accounts_frame, text="Depositar", command=lambda: self.transaction(lambda account, amount: account.deposit(amount))).pack(padx=10, pady=5)
-        ttk.Button(self.accounts_frame, text="Sacar", command=lambda: self.transaction(lambda account, amount: account.withdraw(amount))).pack(padx=10, pady=5)
-    def selected_holder(self) -> Optional[Holder]:
-        selection = self.holders_list.curselection()
+        self.lbl_nome.grid(row=4, column=0, sticky="w", pady=(10, 0))
+        self.txt_nome.grid(row=5, column=0, sticky="w")
+        self.lbl_cpf.grid(row=6, column=0, sticky="w")
+        self.txt_cpf.grid(row=7, column=0, sticky="w")
+        self.btn_cadastrar.grid(row=8, column=0, pady=(10, 0))
+        self.btn_cadastrar.configure(command=self.create_holder)
 
-        if not selection:
+    def build_accounts_panel(self):
+        frame = tkinter.Frame(self)
+        frame.grid(row=0, column=1, sticky="n")
+
+        self.lbl_titulo_contas = tkinter.Label(frame, text="CONTAS")
+        self.lbl_titulo_contas.grid(row=0, column=0, columnspan=2, pady=(0, 10))
+
+        self.lst_contas = tkinter.Listbox(frame, width=35, height=10, exportselection=False)
+        self.lst_contas.grid(row=1, column=0, columnspan=2)
+
+        self.btn_nova = tkinter.Button(frame, text="Nova conta", width=15)
+        self.btn_excluir = tkinter.Button(frame, text="Excluir conta", width=15)
+        self.btn_nova.grid(row=2, column=0, pady=10)
+        self.btn_excluir.grid(row=2, column=1, pady=10)
+        self.btn_nova.configure(command=self.create_account)
+        self.btn_excluir.configure(command=self.delete_account)
+
+        self.lbl_valor = tkinter.Label(frame, text="Valor:")
+        self.txt_valor = tkinter.Entry(frame, width=20)
+        self.btn_depositar = tkinter.Button(frame, text="Depositar", width=15)
+        self.btn_sacar = tkinter.Button(frame, text="Sacar", width=15)
+
+        self.lbl_valor.grid(row=3, column=0, sticky="w")
+        self.txt_valor.grid(row=4, column=0, columnspan=2, sticky="w")
+        self.btn_depositar.grid(row=5, column=0, pady=(10, 0))
+        self.btn_sacar.grid(row=5, column=1, pady=(10, 0))
+        self.btn_depositar.configure(command=self.deposit)
+        self.btn_sacar.configure(command=self.withdraw)
+
+    def selected_holder(self):
+        selecao = self.lst_titulares.curselection()
+        if not selecao:
             return None
+        return self.holders[selecao[0]]
 
-        index = selection [0]
-        return self.holders[index]
-    
-
-    def selected_account(self) -> Optional[Account]:
-        pass
-
-
-    def save(self, message: str) -> None:
-        if self.database and self.bank:
-            self.database.save(self.bank)
-
-        self.status.set(message)
-
-
-    def create_holder(self) -> None:
-        name = self.name_entry.get()
-        cpf = self.cpf_entry.get()
-        try:
-            holder = self.bank.create_holder(name,cpf)
-            print('Titular cadastrado:', holder.name)
-            self.name_entry.delete(0, tk.END)
-            self.cpf_entry.delete(0, tk.END)
-
-            self.refresh_holders()
-
-        except BankError as error:
-            messagebox.showerror("Erro", str(error))
-
-
-    def create_account(self) -> None:
+    def selected_account(self):
         holder = self.selected_holder()
+        selecao = self.lst_contas.curselection()
+        if holder is None or not selecao:
+            return None
+        contas = list(holder.accounts())
+        return contas[selecao[0]]
 
-        if holder is None:
-            messagebox.showerror("Erro", "Selecione um titular primeiro")
-            return
+    def save(self, message):
+        self.database.save(self.bank)
+        self.lbl_status.configure(text=message)
+
+    def create_holder(self):
         try:
-            account = self.bank.crea_account(holder)
+            holder = self.bank.create_holder(self.txt_nome.get(), self.txt_cpf.get())
+        except BankError as erro:
+            messagebox.showerror(title="Erro", message=str(erro))
+            return
 
-            self.refresh_accounts()
-            messagebox.showinfo("Sucesso", f"Conta {account.number:04d} criada com sucesso")
-        except BankError as error:
-            messagebox.showerror("Erro", str(error))
-    def delete_account(self) -> None:
+        self.txt_nome.delete(0, "end")
+        self.txt_cpf.delete(0, "end")
+        self.refresh_holders()
+        self.save(f"Titular {holder.name} cadastrado.")
+
+    def create_account(self):
         holder = self.selected_holder()
         if holder is None:
-            messagebox.showerror("Erro", "Selecione um titular primeiro")
+            messagebox.showwarning(title="Aviso", message="Selecione um titular.")
             return
-        selection = self.accounts_list.curselection()
-        if not selection:
-            messagebox.showerror("Erro", "Selecione uma conta")
-            return
-        index = selection[0]
-        accounts = list(holder.accounts())
-        account = accounts[index]
 
-        confirm = messagebox.askyesno("Confirmar", f"Deseja excluir a conta {account.number:04d}?")
-        if not confirm:
+        account = self.bank.create_account(holder)
+        self.refresh_accounts()
+        self.save(f"Conta {account} criada.")
+
+    def delete_account(self):
+        holder = self.selected_holder()
+        account = self.selected_account()
+        if account is None:
+            messagebox.showwarning(title="Aviso", message="Selecione uma conta.")
             return
-        try:
+
+        if messagebox.askyesno(title="Confirmar", message=f"Excluir a conta {account}?"):
             holder.delete_account(account.number)
             self.refresh_accounts()
-            messagebox.showinfo("Sucesso", "Conta excluída com sucesso.")
-        except BankError as error:
-            messagebox.showerror("Erro", str(error))
-    def transaction(self, operation: Callable[[object, float], None]) -> None:
-        pass
+            self.save(f"Conta {account} excluída.")
 
-    def search_changed(self) -> None:
-        pass
+    def deposit(self):
+        self.transaction("deposito")
 
+    def withdraw(self):
+        self.transaction("saque")
 
-    def refresh_holders(self) -> None:
-        self.holders_list.delete(0, tk.END)
-
-        self.holders = list(self.bank.holders())
-
-        for holder in self.bank.holders():
-            self.holders_list.insert(tk.END, holder.name)
-
-
-    def refresh_accounts(self, keep: Optional[int] = None) -> None:
-        self.accounts_list.delete(0, tk.END)
-
-        holder = self.selected_holder()
-
-        if holder is None:
+    def transaction(self, operation):
+        account = self.selected_account()
+        if account is None:
+            messagebox.showwarning(title="Aviso", message="Selecione uma conta.")
             return
 
+        try:
+            valor = float(self.txt_valor.get().replace(",", "."))
+        except ValueError:
+            messagebox.showerror(title="Erro", message="Digite um valor numérico.")
+            return
+
+        try:
+            if operation == "deposito":
+                account.deposit(valor)
+            else:
+                account.withdraw(valor)
+        except BankError as erro:
+            messagebox.showerror(title="Erro", message=str(erro))
+            return
+
+        self.txt_valor.delete(0, "end")
+        self.refresh_accounts()
+        self.save(f"Conta {account}: saldo R$ {account.balance:.2f}")
+
+    def search_changed(self, event=None):
+        self.refresh_holders()
+
+    def refresh_holders(self):
+        self.lst_titulares.delete(0, "end")
+        self.holders = list(self.bank.filter_by_name(self.txt_busca.get()))
+        for holder in self.holders:
+            self.lst_titulares.insert("end", f"{holder.name} - {holder.cpf}")
+        self.lst_contas.delete(0, "end")
+
+    def refresh_accounts(self, event=None):
+        self.lst_contas.delete(0, "end")
+        holder = self.selected_holder()
+        if holder is None:
+            return
         for account in holder.accounts():
-            self.accounts_list.insert(
-                tk.END,
-                f"Conta {account.number:04d} - R$ {account.balance:.2f}"
-            )
+            self.lst_contas.insert("end", f"Conta {account} - R$ {account.balance:.2f}")
 
 
-if __name__ == "__main__":
-    app = BankApp()
-    app.mainloop()
+database = Database()
+app = BankApp(database, database.load())
+app.mainloop()
