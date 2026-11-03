@@ -17,5 +17,10 @@
         "balance": 0.0
       }
     ]
+  },
+  {
+    "name": "teste 3",
+    "cpf": "030303",
+    "accounts": []
   }
 ]
