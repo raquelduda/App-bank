@@ -1,0 +1,22 @@
+[
+  {
+    "name": "teste",
+    "cpf": "01010",
+    "accounts": [
+      {
+        "number": 1,
+        "balance": 30.0
+      }
+    ]
+  },
+  {
+    "name": "teste 2",
+    "cpf": "020202",
+    "accounts": [
+      {
+        "number": 2,
+        "balance": 0.0
+      }
+    ]
+  }
+]

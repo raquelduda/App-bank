@@ -1,6 +1,5 @@
 import tkinter
-from tkinter import messagebox
-from bank import Bank
+from tkinter import messagebox, ttk
 from database import Database
 from exceptions import BankError
 class BankApp(tkinter.Tk):
@@ -34,9 +33,13 @@ class BankApp(tkinter.Tk):
         self.txt_busca.grid(row=2, column=0, sticky="w", pady=(0, 10))
         self.txt_busca.bind("<KeyRelease>", self.search_changed)
 
-        self.lst_titulares = tkinter.Listbox(frame, width=40, height=10, exportselection=False)
+        self.lst_titulares = ttk.Treeview(frame, columns=("nome", "cpf"), show="headings", height=10)
+        self.lst_titulares.heading("nome", text="Nome")
+        self.lst_titulares.heading("cpf", text="CPF")
+        self.lst_titulares.column("nome", width=160)
+        self.lst_titulares.column("cpf", width=120)
         self.lst_titulares.grid(row=3, column=0)
-        self.lst_titulares.bind("<<ListboxSelect>>", self.refresh_accounts)
+        self.lst_titulares.bind("<<TreeviewSelect>>", self.refresh_accounts)
 
         self.lbl_nome = tkinter.Label(frame, text="Nome:")
         self.txt_nome = tkinter.Entry(frame, width=30)
@@ -81,10 +84,10 @@ class BankApp(tkinter.Tk):
         self.btn_sacar.configure(command=self.withdraw)
 
     def selected_holder(self):
-        selecao = self.lst_titulares.curselection()
+        selecao = self.lst_titulares.selection()
         if not selecao:
             return None
-        return self.holders[selecao[0]]
+        return self.holders[int(selecao[0])]
 
     def selected_account(self):
         holder = self.selected_holder()
@@ -167,10 +170,10 @@ class BankApp(tkinter.Tk):
         self.refresh_holders()
 
     def refresh_holders(self):
-        self.lst_titulares.delete(0, "end")
+        self.lst_titulares.delete(*self.lst_titulares.get_children())
         self.holders = list(self.bank.filter_by_name(self.txt_busca.get()))
-        for holder in self.holders:
-            self.lst_titulares.insert("end", f"{holder.name} - {holder.cpf}")
+        for i, holder in enumerate(self.holders):
+            self.lst_titulares.insert("", "end", iid=str(i), values=(holder.name, holder.cpf))
         self.lst_contas.delete(0, "end")
 
     def refresh_accounts(self, event=None):

@@ -7,6 +7,7 @@ class Bank:
         self._holders = []
 
     def create_holder(self, name: str, cpf: str) -> Holder:
+        holder = Holder(name, cpf)
         for holder in self._holders:
             if holder.cpf == cpf:
                 raise DuplicateHolderError(f"Já existe um titular cadastrado com o CPF {cpf}.")
